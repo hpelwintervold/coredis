@@ -5,6 +5,7 @@ import contextlib
 import contextvars
 import functools
 import inspect
+import logging
 import random
 import textwrap
 from abc import ABCMeta
@@ -67,6 +68,7 @@ R = TypeVar("R")
 if TYPE_CHECKING:
     import coredis.pipeline
 
+logger = logging.getLogger(__name__)
 
 class ClusterMeta(ABCMeta):
     ROUTING_FLAGS: dict[bytes, NodeFlag]
@@ -1018,6 +1020,7 @@ class RedisCluster(
             except (RedisClusterException, BusyLoadingError, asyncio.CancelledError):
                 raise
             except MovedError as e:
+                logger.info("Got MovedError")
                 # Reinitialize on ever x number of MovedError.
                 # This counter will increase faster when the same client object
                 # is shared between multiple threads. To reduce the frequency you

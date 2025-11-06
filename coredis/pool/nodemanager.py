@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import logging
 import random
 import warnings
 from typing import TYPE_CHECKING, Any
@@ -27,6 +28,7 @@ HASH_SLOTS_SET = set(range(HASH_SLOTS))
 if TYPE_CHECKING:
     from coredis import Redis
 
+logger = logging.getLogger(__name__)
 
 @dataclasses.dataclass
 class ManagedNode:
@@ -165,6 +167,7 @@ class NodeManager:
         Maybe it should stop to try after it have correctly covered all slots or when one node is
         reached and it could execute CLUSTER SLOTS command.
         """
+        logger.info("In initialize()")
         nodes_cache: dict[str, ManagedNode] = {}
         tmp_slots: dict[int, list[ManagedNode]] = {}
 
@@ -189,9 +192,10 @@ class NodeManager:
                     cluster_slots = await r.cluster_slots()
                     self.startup_nodes_reachable = True
             except RedisError as err:
+                logger.info("encountered error %s", err)
                 startup_node_errors.setdefault(str(err), []).append(node.name)
                 continue
-
+            
             all_slots_covered = True
             # If there's only one server in the cluster, its ``host`` is ''
             # Fix it to the host in startup_nodes
@@ -272,6 +276,11 @@ class NodeManager:
                 "Not all slots are covered after query all startup_nodes. "
                 f"{len(tmp_slots)} of {HASH_SLOTS} covered..."
             )
+
+        for slot, nodelist in tmp_slots.items():
+            logger.info("slots data: %s %s", slot, nodelist)
+        logger.info("final slots len: %s", len(tmp_slots))
+        logger.info("final nodes: %s", nodes_cache)
 
         # Set the tmp variables to the real variables
         self.slots = tmp_slots
